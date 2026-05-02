@@ -1,0 +1,201 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  password      String?
+  role          String     @default("student") // admin, moderator, professor, student, visitor
+  avatar        String?
+  points        Int        @default(0)
+  bio           String?
+  themePref     String?    // light, dark, or custom theme name
+  emailVerified DateTime?
+  provider      String     @default("credentials") // credentials, google
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  memories        Memory[]
+  photos          Photo[]
+  albums          Album[]
+  discussions     Discussion[]
+  comments        Comment[]
+  votesCast       Vote[]        @relation("Voter")
+  votesReceived   Vote[]        @relation("Candidate")
+  gameScores      GameScore[]
+  resources       Resource[]
+  newsEvents      NewsEvent[]
+  reportsMade     Report[]      @relation("Reporter")
+  reportsReceived Report[]      @relation("Reported")
+  auditLogs       AuditLog[]    @relation("AuditActor")
+}
+
+model Memory {
+  id        String   @id @default(cuid())
+  userId    String
+  text      String
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Album {
+  id        String   @id @default(cuid())
+  title     String
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  photos Photo[]
+  user   User   @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+}
+
+model Photo {
+  id        String   @id @default(cuid())
+  albumId   String
+  userId    String
+  url       String
+  caption   String?
+  createdAt DateTime @default(now())
+
+  album Album @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Resource {
+  id        String   @id @default(cuid())
+  profId    String
+  title     String
+  fileUrl   String?
+  link      String?
+  type      String   @default("pdf") // pdf, link, video
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  professor User @relation(fields: [profId], references: [id], onDelete: Cascade)
+}
+
+model Discussion {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  content   String
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments Comment[]
+}
+
+model Comment {
+  id            String   @id @default(cuid())
+  discussionId  String
+  userId        String
+  content       String
+  parentId      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  discussion Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent     Comment?   @relation("CommentReplies", fields: [parentId], references: [id])
+  replies    Comment[]  @relation("CommentReplies")
+}
+
+model NewsEvent {
+  id        String   @id @default(cuid())
+  authorId  String
+  title     String
+  content   String
+  category  String   @default("general") // exam, event, general, announcement
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+model Vote {
+  id          String   @id @default(cuid())
+  voterId     String
+  candidateId String
+  category    String   // academic, gaming, general
+  week        Int
+  createdAt   DateTime @default(now())
+
+  voter     User @relation("Voter", fields: [voterId], references: [id], onDelete: Cascade)
+  candidate User @relation("Candidate", fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([voterId, category, week])
+}
+
+model GameScore {
+  id        String   @id @default(cuid())
+  userId    String
+  game      String   // xo, memory, chess, quiz
+  score     Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model HonorEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  category  String   // academic, gaming, voting
+  week      Int
+  year      Int
+  createdAt DateTime @default(now())
+
+  @@unique([category, week, year])
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  reporterId  String
+  reportedId  String
+  reason      String
+  targetType  String   // memory, photo, user
+  targetId    String
+  status      String   @default("pending") // pending, resolved, dismissed
+  createdAt   DateTime @default(now())
+
+  reporter User @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reported User @relation("Reported", fields: [reportedId], references: [id], onDelete: Cascade)
+}
+
+model ThemeConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model SiteSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  action    String   // delete_memory, delete_photo, change_role, resolve_report, etc.
+  targetType String  // memory, photo, user, report
+  targetId  String
+  details   String?
+  createdAt DateTime @default(now())
+
+  actor User @relation("AuditActor", fields: [actorId], references: [id], onDelete: Cascade)
+}
