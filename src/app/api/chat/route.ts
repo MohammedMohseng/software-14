@@ -117,8 +117,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        response:
-          "أواجه مشكلة في الاتصال حاليًا. يرجى المحاولة مرة أخرى بعد قليل. إذا استمرت المشكلة، فقد تكون خدمة الذكاء الاصطناعي غير متاحة مؤقتًا.", error
+        response: error.message || "حدث خطأ غير متوقع أثناء معالجة رسالتك. يرجى المحاولة مرة أخرى لاحقًا.",
       },
       { status: 200 }
     );
