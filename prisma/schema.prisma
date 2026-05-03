@@ -12,7 +12,7 @@ model User {
   email         String    @unique
   name          String
   password      String?
-  role          String     @default("student") // admin, moderator, professor, student, visitor
+  role          String     @default("admin") // admin, moderator, professor, student, visitor
   avatar        String?
   points        Int        @default(0)
   bio           String?
