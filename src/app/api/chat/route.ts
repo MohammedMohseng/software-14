@@ -114,10 +114,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ response: responseText });
   } catch (error) {
     console.error("Chat API error:", error);
+
     return NextResponse.json(
       {
         response:
-          "أواجه مشكلة في الاتصال حاليًا. يرجى المحاولة مرة أخرى بعد قليل. إذا استمرت المشكلة، فقد تكون خدمة الذكاء الاصطناعي غير متاحة مؤقتًا.",
+          "أواجه مشكلة في الاتصال حاليًا. يرجى المحاولة مرة أخرى بعد قليل. إذا استمرت المشكلة، فقد تكون خدمة الذكاء الاصطناعي غير متاحة مؤقتًا.", error
       },
       { status: 200 }
     );
