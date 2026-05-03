@@ -94,9 +94,12 @@ export async function POST(request: NextRequest) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-      model: "gemini-3-flash",
-      systemInstruction: systemPrompt,
-    });
+  model: "gemini-2.5-flash",
+  systemInstruction: systemPrompt,
+  generationConfig: {
+    thinkingConfig: { thinkingBudget: 0 }, // ✅ يوقف الـ thinking ويخلي الردود أسرع
+  },
+});
 
     // Map history to Gemini format (role "assistant" → "model")
     let geminiHistory = validHistory.map((h) => ({
