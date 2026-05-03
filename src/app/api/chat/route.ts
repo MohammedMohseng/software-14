@@ -99,10 +99,16 @@ export async function POST(request: NextRequest) {
     });
 
     // Map history to Gemini format (role "assistant" → "model")
-    const geminiHistory = validHistory.map((h) => ({
+    let geminiHistory = validHistory.map((h) => ({
       role: h.role === "assistant" ? "model" : "user",
       parts: [{ text: h.content }],
     }));
+
+    // ✅ الإصلاح: Gemini يشترط أن تبدأ الـ history بـ "user" دائمًا
+    // نشيل أي رسائل "model" من البداية حتى نصل لأول "user"
+    while (geminiHistory.length > 0 && geminiHistory[0].role === "model") {
+      geminiHistory.shift();
+    }
 
     const chat = model.startChat({ history: geminiHistory });
 
@@ -114,10 +120,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ response: responseText });
   } catch (error) {
     console.error("Chat API error:", error);
-
     return NextResponse.json(
       {
-        response: error.message || "حدث خطأ غير متوقع أثناء معالجة رسالتك. يرجى المحاولة مرة أخرى لاحقًا.",
+        response:
+          "أواجه مشكلة في الاتصال حاليًا. يرجى المحاولة مرة أخرى بعد قليل. إذا استمرت المشكلة، فقد تكون خدمة الذكاء الاصطناعي غير متاحة مؤقتًا.",
       },
       { status: 200 }
     );
