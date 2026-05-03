@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import ZAI from "z-ai-web-dev-sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Simple in-memory rate limiting
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -23,20 +23,29 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
+const BASE_IDENTITY = `أنت مساعد ذكاء اصطناعي خاص بمنصة الدفعة الرابعة عشرة - تخصص هندسة البرمجيات، جامعة السودان للعلوم والتكنولوجيا. يجب أن تتحدث دائمًا باللغة العربية وأن تكون ردودك واضحة ومفيدة وودية.`;
+
 const SYSTEM_PROMPTS = {
-  platform:
-    "You are the Software-14 platform assistant. You help users navigate the platform, understand features, and answer questions about the Software Engineering batch 14 community. The platform has sections for Memories, Gallery, Academic Resources, News, Games, and AI Chat. Be friendly, helpful, and concise. Use emojis sparingly to add warmth. If you don't know something specific about the platform, be honest and suggest where the user might find the information.",
-  general:
-    "You are a helpful AI assistant. You can answer questions about programming, academics, general knowledge, and more. Be friendly and helpful. Provide clear, well-structured answers. Use code examples when relevant. Be concise but thorough.",
+  platform: `${BASE_IDENTITY}
+أنت مساعد المنصة المتخصص. تساعد المستخدمين في التنقل داخل المنصة وفهم ميزاتها والإجابة على أسئلتهم المتعلقة بمجتمع الدفعة الرابعة عشرة. تحتوي المنصة على أقسام: الذكريات، المعرض، الموارد الأكاديمية، الأخبار، الألعاب، ومحادثة الذكاء الاصطناعي. كن ودودًا ومختصرًا. إذا لم تكن متأكدًا من معلومة معينة عن المنصة، كن صريحًا واقترح على المستخدم من أين يمكنه إيجاد المعلومة.`,
+
+  general: `${BASE_IDENTITY}
+يمكنك الإجابة على أسئلة البرمجة، المواد الأكاديمية، المعلومات العامة، وكل ما يخص طلاب هندسة البرمجيات. قدّم إجابات منظمة وواضحة، واستخدم أمثلة برمجية عند الحاجة. كن مختصرًا دون الإخلال بالشمولية.`,
 };
 
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting
-    const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+    const ip =
+      request.headers.get("x-forwarded-for") ||
+      request.headers.get("x-real-ip") ||
+      "unknown";
+
     if (!checkRateLimit(ip)) {
       return NextResponse.json(
-        { error: "Rate limit exceeded. Please wait a moment before sending another message." },
+        {
+          error: "تجاوزت الحد المسموح به من الرسائل. يرجى الانتظار قليلاً قبل إرسال رسالة أخرى.",
+        },
         { status: 429 }
       );
     }
@@ -50,14 +59,14 @@ export async function POST(request: NextRequest) {
 
     if (!message || typeof message !== "string" || message.trim().length === 0) {
       return NextResponse.json(
-        { error: "Message is required" },
+        { error: "الرسالة مطلوبة ولا يمكن أن تكون فارغة." },
         { status: 400 }
       );
     }
 
     if (message.length > 4000) {
       return NextResponse.json(
-        { error: "Message is too long. Please keep it under 4000 characters." },
+        { error: "الرسالة طويلة جدًا. يرجى الإبقاء عليها أقل من 4000 حرف." },
         { status: 400 }
       );
     }
@@ -77,23 +86,30 @@ export async function POST(request: NextRequest) {
 
     const systemPrompt = SYSTEM_PROMPTS[context] || SYSTEM_PROMPTS.general;
 
-    // Call z-ai-web-dev-sdk
-    const zai = await ZAI.create();
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: "assistant", content: systemPrompt },
-        ...validHistory.map((h) => ({
-          role: h.role as "user" | "assistant",
-          content: h.content,
-        })),
-        { role: "user", content: message.trim() },
-      ],
-      thinking: { type: "disabled" },
+    // Initialize Gemini client
+    const apiKey = process.env.AI_API_KEY;
+    if (!apiKey) {
+      throw new Error("متغير البيئة AI_API_KEY غير موجود.");
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      systemInstruction: systemPrompt,
     });
 
+    // Map history to Gemini format (role "assistant" → "model")
+    const geminiHistory = validHistory.map((h) => ({
+      role: h.role === "assistant" ? "model" : "user",
+      parts: [{ text: h.content }],
+    }));
+
+    const chat = model.startChat({ history: geminiHistory });
+
+    const result = await chat.sendMessage(message.trim());
     const responseText =
-      completion?.choices?.[0]?.message?.content ||
-      "I'm sorry, I couldn't generate a response. Please try again.";
+      result.response.text() ||
+      "عذرًا، لم أتمكن من توليد رد. يرجى المحاولة مرة أخرى.";
 
     return NextResponse.json({ response: responseText });
   } catch (error) {
@@ -101,9 +117,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         response:
-          "I'm having trouble connecting right now. Please try again in a moment. If the issue persists, the AI service might be temporarily unavailable.",
+          "أواجه مشكلة في الاتصال حاليًا. يرجى المحاولة مرة أخرى بعد قليل. إذا استمرت المشكلة، فقد تكون خدمة الذكاء الاصطناعي غير متاحة مؤقتًا.",
       },
-      { status: 200 } // Return 200 with fallback message so UI shows something useful
+      { status: 200 }
     );
   }
 }
@@ -111,7 +127,7 @@ export async function POST(request: NextRequest) {
 // Handle unsupported methods
 export async function GET() {
   return NextResponse.json(
-    { error: "Method not allowed. Use POST to send messages." },
+    { error: "الطريقة غير مدعومة. استخدم POST لإرسال الرسائل." },
     { status: 405 }
   );
 }
