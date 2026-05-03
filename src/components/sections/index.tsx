@@ -357,7 +357,7 @@ export function HomeSection() {
           </CardHeader>
           <CardContent className="space-y-3">
             {[
-              { text: "هاكاثون CodeFest 2025", badge: "فعالية" },
+              { text: "هاكاثون CodeFest 2026", badge: "فعالية" },
               { text: "بدء امتحانات منتصف الفصل", badge: "امتحان" },
               { text: "جلسة تعريفية عن أبحاث تعلم الآلة", badge: "أكاديمي" },
               { text: "لقاء لم شمل الدفعة", badge: "اجتماعي" },

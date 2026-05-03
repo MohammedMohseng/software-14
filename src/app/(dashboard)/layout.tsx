@@ -567,7 +567,7 @@ export default function DashboardLayout({
           {/* ─── Footer ─────────────────────────────────────────────── */}
           <footer className="hidden md:block border-t border-border/50 bg-card/50 py-4 px-6 text-center">
             <p className="text-xs text-muted-foreground">
-              © 2025 دفعة Software-14. جميع الحقوق محفوظة.
+              © 2026 دفعة Software-14. جميع الحقوق محفوظة.
             </p>
           </footer>
         </div>

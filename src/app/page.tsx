@@ -500,7 +500,7 @@ export default function LandingPage() {
       <footer className="mt-auto border-t border-border/50">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
-            <span>© 2025 دفعة Software-14. جميع الحقوق محفوظة.</span>
+            <span>© 2026 دفعة Software-14. جميع الحقوق محفوظة.</span>
             <span className="flex items-center gap-1">
               صُنع بـ <span className="text-rose-500">❤️</span> من فريق Software-14
             </span>
