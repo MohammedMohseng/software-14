@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   keywords: ["Software-14", "كلية", "أكاديمية", "مجتمع", "ألعاب ذكاء اصطناعي"],
   authors: [{ name: "فريق Software-14" }],
   icons: {
-    icon: "/favicon.ico",
+    icon: "/favicon.png",
   },
 };
 
