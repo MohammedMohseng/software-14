@@ -141,7 +141,7 @@ export default function MemoryMatch({ onScore }: MemoryMatchProps) {
             {/* Back of card */}
             {!(c.flipped || c.matched) && (
               <div
-                className="absolute inset-0 rounded-xl flex items-center justify-center bg-card border-2 border-border"
+                className="absolute inset-0 rounded-xl flex items-center justify-center bg-card border-2 border-primary/40"
                 style={{ backfaceVisibility: "hidden" as const }}
               >
                 <span className="text-2xl text-muted-foreground/40">?</span>
