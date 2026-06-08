@@ -127,11 +127,7 @@ export default function MemoryMatch({ onScore }: MemoryMatchProps) {
             disabled={done}
           >
             <div
-              className={`absolute inset-0 rounded-xl flex items-center justify-center text-3xl sm:text-4xl transition-colors duration-200 ${
-                c.flipped || c.matched
-                  ? "bg-gradient-to-br from-primary/15 to-teal-500/15 border-2
-border-border border-primary/40"
-                  : "bg-card border-2 border-border border-primary/40 hover:bg-primary/5 cursor-pointer"
+              className={`absolute inset-0 rounded-xl flex items-center justify-center text-3xl sm:text-4xl transition-colors duration-200 ${c.flipped || c.matched ? "bg-gradient-to-br from-primary/15 to-teal-500/15 border-2 border-border border-primary/40" : "bg-card border-2 border-border border-primary/40 hover:bg-primary/5 cursor-pointer"
               } ${c.matched ? "opacity-60" : ""}`}
               style={{ backfaceVisibility: "hidden" as const, transform: c.flipped || c.matched ? "rotateY(180deg)" : "rotateY(0)" }}
             >
