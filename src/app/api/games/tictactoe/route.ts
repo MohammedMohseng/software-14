@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,36 +9,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid board" }, { status: 400 });
     }
 
-    // Try AI move via z-ai-web-dev-sdk
+    // Try AI move via Gemini
     try {
-      const ZAI = (await import("z-ai-web-dev-sdk")).default;
-      const zai = await ZAI.create();
+      const apiKey = process.env.AI_API_KEY;
+      if (!apiKey) {
+        throw new Error("متغير البيئة AI_API_KEY غير موجود.");
+      }
 
       const boardDisplay = board.split("").map((c, i) => `${i}:${c}`).join(" | ");
       const winningLines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 
-      const completion = await zai.chat.completions.create({
-        messages: [
-          {
-            role: "system",
-            content: `You are a Tic Tac Toe AI. You play as O. The player is X. Empty cells are "-". 
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.5-flash",
+        systemInstruction: `You are a Tic Tac Toe AI. You play as O. The player is X. Empty cells are "-". 
 You must return ONLY a single number (0-8) representing your move. No explanation.
 The board positions are indexed 0-8:
 0 | 1 | 2
 3 | 4 | 5
 6 | 7 | 8
 Winning lines: ${JSON.stringify(winningLines)}
-Choose the best move for O. Try to win, or block X from winning, or take center.`
-          },
-          {
-            role: "user",
-            content: `Current board: ${boardDisplay}\nYour move (0-8):`
-          }
-        ],
-        thinking: { type: "disabled" },
+Choose the best move for O. Try to win, or block X from winning, or take center.`,
+        generationConfig: {
+          thinkingConfig: { thinkingBudget: 0 },
+        },
       });
 
-      const text = completion.choices?.[0]?.message?.content?.trim() ?? "";
+      const result = await model.generateContent(
+        `Current board: ${boardDisplay}\nYour move (0-8):`
+      );
+
+      const text = result.response.text()?.trim() ?? "";
       const match = text.match(/\d/);
       if (match) {
         const move = parseInt(match[0], 10);
