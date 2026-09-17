@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const CATEGORY_PROMPTS: Record<string, string> = {
-  programming: "Generate a programming/computer science quiz question. Topics can include: algorithms, data structures, programming languages, software engineering, databases, web development, operating systems, networking.",
-  general: "Generate a general knowledge quiz question. Topics can include: geography, history, science, literature, art, culture, current events, nature.",
-  mathematics: "Generate a mathematics quiz question. Topics can include: algebra, calculus, geometry, statistics, number theory, probability, logic.",
-  religious: "Generate a religious/Islamic knowledge quiz question. Topics can include: Quran, Hadith, Islamic history, Fiqh, prophets, pillars of Islam, Islamic values.",
+  programming: "أنشئ سؤال اختبار في البرمجة وعلوم الحاسوب. يمكن أن تشمل المواضيع: الخوارزميات، هياكل البيانات، لغات البرمجة، هندسة البرمجيات، قواعد البيانات، تطوير الويب، أنظمة التشغيل، الشبكات.",
+  general: "أنشئ سؤال اختبار في المعرفة العامة. يمكن أن تشمل المواضيع: الجغرافيا، التاريخ، العلوم، الأدب، الفن، الثقافة، الأحداث الجارية، الطبيعة.",
+  mathematics: "أنشئ سؤال اختبار في الرياضيات. يمكن أن تشمل المواضيع: الجبر، التفاضل والتكامل، الهندسة، الإحصاء، نظرية الأعداد، الاحتمالات، المنطق.",
+  religious: "أنشئ سؤال اختبار في المعرفة الدينية/الإسلامية. يمكن أن تشمل المواضيع: القرآن، الحديث، التاريخ الإسلامي، الفقه، الأنبياء، أركان الإسلام، القيم الإسلامية.",
 };
 
 export async function POST(req: NextRequest) {
@@ -17,32 +18,34 @@ export async function POST(req: NextRequest) {
 
     const categoryPrompt = CATEGORY_PROMPTS[category] || CATEGORY_PROMPTS.general;
 
-    // Generate question via z-ai-web-dev-sdk
+    // Generate question via Gemini
     try {
-      const ZAI = (await import("z-ai-web-dev-sdk")).default;
-      const zai = await ZAI.create();
+      const apiKey = process.env.AI_API_KEY;
+      if (!apiKey) {
+        throw new Error("متغير البيئة AI_API_KEY غير موجود.");
+      }
 
-      const completion = await zai.chat.completions.create({
-        messages: [
-          {
-            role: "system",
-            content: `You are a quiz question generator. Generate a single multiple-choice quiz question.
-You MUST respond with ONLY a valid JSON object in this exact format, no other text:
-{"question":"The question text","options":["Option A","Option B","Option C","Option D"],"correctIndex":0}
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.5-flash",
+        systemInstruction: `أنت مولّد أسئلة اختبارات. أنشئ سؤال اختيار من متعدد واحد فقط.
+يجب أن يكون السؤال والخيارات ونص الإجابة بالكامل باللغة العربية الفصحى فقط، دون أي كلمات إنجليزية داخل النصوص.
+يجب أن ترد فقط بكائن JSON صالح بهذا الشكل بالضبط، بدون أي نص آخر:
+{"question":"نص السؤال","options":["الخيار أ","الخيار ب","الخيار ج","الخيار د"],"correctIndex":0}
 
-Where correctIndex is the 0-based index of the correct answer (0-3).
-Make the question challenging but fair. The distractors (wrong answers) should be plausible.
-Vary the difficulty level.`
-          },
-          {
-            role: "user",
-            content: `${categoryPrompt}\n\nGenerate a quiz question now. Remember: respond with ONLY the JSON object, nothing else.`
-          }
-        ],
-        thinking: { type: "disabled" },
+حيث correctIndex هو رقم الإجابة الصحيحة (من 0 إلى 3).
+اجعل السؤال متوسط الصعوبة إلى صعب لكن عادلاً. يجب أن تكون الخيارات الخاطئة منطقية ومقنعة.
+نوّع في مستوى الصعوبة.`,
+        generationConfig: {
+          thinkingConfig: { thinkingBudget: 0 },
+        },
       });
 
-      const text = completion.choices?.[0]?.message?.content?.trim() ?? "";
+      const result = await model.generateContent(
+        `${categoryPrompt}\n\nأنشئ سؤال الاختبار الآن. تذكر: رد فقط بكائن JSON، بدون أي نص إضافي.`
+      );
+
+      const text = result.response.text()?.trim() ?? "";
 
       // Try to parse JSON from the response
       // Sometimes the AI wraps it in markdown code blocks
@@ -75,40 +78,40 @@ Vary the difficulty level.`
     // Fallback questions per category
     const fallbacks: Record<string, Array<{ question: string; options: string[]; correctIndex: number }>> = {
       programming: [
-        { question: "What is the time complexity of binary search?", options: ["O(n)", "O(log n)", "O(n²)", "O(1)"], correctIndex: 1 },
-        { question: "Which data structure uses FIFO?", options: ["Stack", "Queue", "Tree", "Graph"], correctIndex: 1 },
-        { question: "What does HTML stand for?", options: ["Hyper Text Markup Language", "High Tech Modern Language", "Hyper Transfer Markup Language", "Home Tool Markup Language"], correctIndex: 0 },
-        { question: "Which keyword is used to declare a variable in JavaScript?", options: ["var", "int", "string", "dim"], correctIndex: 0 },
-        { question: "What is the purpose of CSS?", options: ["Database management", "Styling web pages", "Server-side logic", "API creation"], correctIndex: 1 },
-        { question: "Which sorting algorithm has the best average time complexity?", options: ["Bubble Sort", "Selection Sort", "Merge Sort", "Insertion Sort"], correctIndex: 2 },
-        { question: "What does API stand for?", options: ["Application Programming Interface", "Advanced Protocol Integration", "Automated Process Interface", "Application Process Integration"], correctIndex: 0 },
+        { question: "ما هي التعقيد الزمني للبحث الثنائي (Binary Search)؟", options: ["O(n)", "O(log n)", "O(n²)", "O(1)"], correctIndex: 1 },
+        { question: "أي هيكل بيانات يعتمد على مبدأ FIFO (الأول دخولاً الأول خروجاً)؟", options: ["المكدس (Stack)", "الطابور (Queue)", "الشجرة (Tree)", "الرسم البياني (Graph)"], correctIndex: 1 },
+        { question: "ماذا تعني اختصار HTML؟", options: ["Hyper Text Markup Language", "High Tech Modern Language", "Hyper Transfer Markup Language", "Home Tool Markup Language"], correctIndex: 0 },
+        { question: "أي كلمة مفتاحية تُستخدم لتعريف متغير في JavaScript؟", options: ["var", "int", "string", "dim"], correctIndex: 0 },
+        { question: "ما هو الغرض من لغة CSS؟", options: ["إدارة قواعد البيانات", "تنسيق صفحات الويب", "منطق جانب الخادم", "إنشاء واجهات برمجة تطبيقات"], correctIndex: 1 },
+        { question: "أي خوارزمية ترتيب تتمتع بأفضل تعقيد زمني في المتوسط؟", options: ["الفقاعي (Bubble Sort)", "الاختياري (Selection Sort)", "الدمج (Merge Sort)", "الإدراج (Insertion Sort)"], correctIndex: 2 },
+        { question: "ماذا تعني اختصار API؟", options: ["Application Programming Interface", "Advanced Protocol Integration", "Automated Process Interface", "Application Process Integration"], correctIndex: 0 },
       ],
       general: [
-        { question: "What is the largest ocean on Earth?", options: ["Atlantic", "Indian", "Pacific", "Arctic"], correctIndex: 2 },
-        { question: "Who painted the Mona Lisa?", options: ["Van Gogh", "Picasso", "Da Vinci", "Rembrandt"], correctIndex: 2 },
-        { question: "What is the capital of Australia?", options: ["Sydney", "Melbourne", "Canberra", "Brisbane"], correctIndex: 2 },
-        { question: "How many continents are there?", options: ["5", "6", "7", "8"], correctIndex: 2 },
-        { question: "What is the hardest natural substance?", options: ["Gold", "Iron", "Diamond", "Platinum"], correctIndex: 2 },
-        { question: "Which planet is known as the Red Planet?", options: ["Venus", "Mars", "Jupiter", "Saturn"], correctIndex: 1 },
-        { question: "What is the smallest country in the world?", options: ["Monaco", "Vatican City", "San Marino", "Liechtenstein"], correctIndex: 1 },
+        { question: "ما هو أكبر محيط على وجه الأرض؟", options: ["الأطلسي", "الهندي", "الهادئ", "المتجمد الشمالي"], correctIndex: 2 },
+        { question: "من رسم لوحة الموناليزا؟", options: ["فان جوخ", "بيكاسو", "دافينشي", "رامبرانت"], correctIndex: 2 },
+        { question: "ما هي عاصمة أستراليا؟", options: ["سيدني", "ملبورن", "كانبيرا", "بريزبان"], correctIndex: 2 },
+        { question: "كم عدد القارات في العالم؟", options: ["5", "6", "7", "8"], correctIndex: 2 },
+        { question: "ما هي أصلب مادة طبيعية؟", options: ["الذهب", "الحديد", "الألماس", "البلاتين"], correctIndex: 2 },
+        { question: "أي كوكب يُعرف بالكوكب الأحمر؟", options: ["الزهرة", "المريخ", "المشتري", "زحل"], correctIndex: 1 },
+        { question: "ما هي أصغر دولة في العالم؟", options: ["موناكو", "الفاتيكان", "سان مارينو", "ليختنشتاين"], correctIndex: 1 },
       ],
       mathematics: [
-        { question: "What is the value of π (pi) to 2 decimal places?", options: ["3.12", "3.14", "3.16", "3.18"], correctIndex: 1 },
-        { question: "What is the derivative of x²?", options: ["x", "2x", "x²", "2x²"], correctIndex: 1 },
-        { question: "What is the sum of angles in a triangle?", options: ["90°", "180°", "270°", "360°"], correctIndex: 1 },
-        { question: "What is the square root of 144?", options: ["10", "11", "12", "13"], correctIndex: 2 },
-        { question: "What is 7! (7 factorial)?", options: ["720", "5040", "40320", "362880"], correctIndex: 1 },
-        { question: "What is the formula for the area of a circle?", options: ["2πr", "πr²", "πd", "2πr²"], correctIndex: 1 },
-        { question: "What is log₁₀(1000)?", options: ["1", "2", "3", "4"], correctIndex: 2 },
+        { question: "ما هي قيمة العدد π (باي) لأقرب رقمين عشريين؟", options: ["3.12", "3.14", "3.16", "3.18"], correctIndex: 1 },
+        { question: "ما هو مشتق الدالة x²؟", options: ["x", "2x", "x²", "2x²"], correctIndex: 1 },
+        { question: "ما هو مجموع زوايا المثلث؟", options: ["90°", "180°", "270°", "360°"], correctIndex: 1 },
+        { question: "ما هو الجذر التربيعي للعدد 144؟", options: ["10", "11", "12", "13"], correctIndex: 2 },
+        { question: "ما ناتج !7 (مضروب 7)؟", options: ["720", "5040", "40320", "362880"], correctIndex: 1 },
+        { question: "ما هي معادلة مساحة الدائرة؟", options: ["2πr", "πr²", "πd", "2πr²"], correctIndex: 1 },
+        { question: "ما ناتج log₁₀(1000)؟", options: ["1", "2", "3", "4"], correctIndex: 2 },
       ],
       religious: [
-        { question: "How many Surahs are in the Quran?", options: ["112", "114", "116", "120"], correctIndex: 1 },
-        { question: "What is the first pillar of Islam?", options: ["Salah", "Shahada", "Zakat", "Hajj"], correctIndex: 1 },
-        { question: "Who was the first Prophet in Islam?", options: ["Ibrahim", "Musa", "Adam", "Nuh"], correctIndex: 2 },
-        { question: "During which month do Muslims fast?", options: ["Shawwal", "Ramadan", "Dhul Hijjah", "Rajab"], correctIndex: 1 },
-        { question: "How many times a day do Muslims pray?", options: ["3", "4", "5", "6"], correctIndex: 2 },
-        { question: "What is the name of the holy book revealed to Prophet Musa?", options: ["Quran", "Injil", "Tawrat", "Zabur"], correctIndex: 2 },
-        { question: "What is the second Surah of the Quran?", options: ["Al-Fatiha", "Al-Baqarah", "Al-Imran", "An-Nisa"], correctIndex: 1 },
+        { question: "كم عدد سور القرآن الكريم؟", options: ["112", "114", "116", "120"], correctIndex: 1 },
+        { question: "ما هو الركن الأول من أركان الإسلام؟", options: ["الصلاة", "الشهادتان", "الزكاة", "الحج"], correctIndex: 1 },
+        { question: "من هو أول نبي في الإسلام؟", options: ["إبراهيم", "موسى", "آدم", "نوح"], correctIndex: 2 },
+        { question: "في أي شهر يصوم المسلمون؟", options: ["شوال", "رمضان", "ذو الحجة", "رجب"], correctIndex: 1 },
+        { question: "كم مرة يصلي المسلمون في اليوم؟", options: ["3", "4", "5", "6"], correctIndex: 2 },
+        { question: "ما اسم الكتاب المقدس الذي أُنزل على النبي موسى عليه السلام؟", options: ["القرآن", "الإنجيل", "التوراة", "الزبور"], correctIndex: 2 },
+        { question: "ما هي السورة الثانية في القرآن الكريم؟", options: ["الفاتحة", "البقرة", "آل عمران", "النساء"], correctIndex: 1 },
       ],
     };
 
